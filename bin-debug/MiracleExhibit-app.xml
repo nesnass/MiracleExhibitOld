@@ -5,7 +5,7 @@
 	<name>MiracleME</name>
 	<versionNumber>1.1.2</versionNumber>
 	<initialWindow>
-		<content>MiraclME.swf</content>
+		<content>MiracleExhibit.swf</content>
     </initialWindow>
 
 	<icon>
@@ -14,4 +14,7 @@
 		<image48x48>assets/icons/48.png</image48x48>
 		<image128x128>assets/icons/128.png</image128x128>
 	</icon>
+	
+	<supportedProfiles>extendedDesktop</supportedProfiles>
+		
 </application>

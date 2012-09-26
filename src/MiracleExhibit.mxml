@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/mx" applicationComplete="initApp(event)" showStatusBar="false" width="1920" height="1080" xmlns:local="*">
+	
+	<fx:Script source="exhibit.as" />
+	
+	<fx:Declarations>
+		<s:Fade id="splashFadeIn" alphaFrom="0" alphaTo="1" duration="1500" />
+		<s:Fade id="splashFadeOut" alphaFrom="1" alphaTo="0" duration="1500" />
+		<s:Fade id="countDownFadeOut" alphaFrom="1" alphaTo="0" duration="500" target="{countDown}" />
+	</fx:Declarations>
+	
+	<s:states>
+		<s:State name="welcome" />
+		<s:State name="instruction" />
+		<s:State name="game" />
+		<s:State name="result" />
+	</s:states>
+	
+	<s:Group width="1920" height="1080" includeIn="game" horizontalCenter="0" verticalCenter="0" scaleX="0.9" scaleY="0.9">
+		<s:Group left="668" top="180">
+			<s:Image id="bckImage" />
+			<s:VideoDisplay id="videoPlayer" source="{videoSource}" width="580" height="836" autoPlay="true" loop="true" visible ="false"/>
+			<s:VideoDisplay id="videoPlayer2" source="{videoSource2}" width="580" height="836" autoPlay="true" loop="true" visible="false"/>
+		</s:Group>
+		<local:HP_FLEX id="swfHP"/>
+		<s:RichText id="countDown" text="{countDownText}" x="{960 - int(countDown.width/2)}" y="500" fontSize="200" fontWeight="bold" visible="false" />
+		<s:Image id="houseImage" source="assets/pics/house.png" x="350" y="1050" />
+		<s:Group width="100%" height="150">
+			<s:Rect width="100%" height="100%">
+				<s:fill>
+					<s:SolidColor color="#FFFFFF" />
+				</s:fill>
+			</s:Rect>
+		</s:Group>
+		<s:VGroup horizontalAlign="center" visible="false">
+			<s:HGroup>
+				<s:Label fontSize="20" id="readVal" />
+				<s:Label fontSize="20" text="{'(max: '+maxReadVal+')'}" />
+				<s:Label fontSize="20" text="{'(min: '+minReadVal+')'}" />
+			</s:HGroup>
+			<s:Label fontSize="20" id="tempVal" />
+		</s:VGroup>
+	</s:Group>
+	
+	<s:Group id="splashGroup" width="100%" height="100%" includeIn="welcome" hideEffect="splashFadeOut" showEffect="splashFadeIn">
+		<s:Image horizontalCenter="0" verticalCenter="0" source="@Embed('assets/pics/splash.jpg')" cacheAsBitmap="true" />
+	</s:Group>
+	<s:Group id="instructionGroup" width="100%" height="100%" includeIn="instruction" hideEffect="splashFadeOut" showEffect="splashFadeIn">
+		<s:Image horizontalCenter="0" verticalCenter="0" source="@Embed('assets/pics/instruction.jpg')" cacheAsBitmap="true" />
+	</s:Group>
+	<s:Group id="resultGroup" width="100%" height="100%" includeIn="result" >
+		<s:Button id="restartButton" label="Restart Game" x="1000" y="500" includeIn="result" click="restartGame(event)"/>
+	</s:Group>
+</s:WindowedApplication>
