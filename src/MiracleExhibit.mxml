@@ -26,7 +26,8 @@
 		</s:Group>
 		<local:HP_FLEX id="swfHP"/>
 		<s:RichText id="countDown" text="{countDownText}" x="{960 - int(countDown.width/2)}" y="500" fontSize="200" fontWeight="bold" visible="false" />
-		<s:Image id="houseImage" source="assets/pics/house.png" x="350" y="1050" />
+		<s:Image id="houseImage" source="assets/pics/house.png" x="300" y="1050" />
+		<s:Button id="restartButton" label="Restart Game" x="1700" y="1070" includeIn="game" click="restartGame(event)"/>
 		<s:Group width="100%" height="150">
 			<s:Rect width="100%" height="100%">
 				<s:fill>
@@ -34,14 +35,6 @@
 				</s:fill>
 			</s:Rect>
 		</s:Group>
-		<s:VGroup horizontalAlign="center" visible="false">
-			<s:HGroup>
-				<s:Label fontSize="20" id="readVal" />
-				<s:Label fontSize="20" text="{'(max: '+maxReadVal+')'}" />
-				<s:Label fontSize="20" text="{'(min: '+minReadVal+')'}" />
-			</s:HGroup>
-			<s:Label fontSize="20" id="tempVal" />
-		</s:VGroup>
 	</s:Group>
 	
 	<s:Group id="splashGroup" width="100%" height="100%" includeIn="welcome" hideEffect="splashFadeOut" showEffect="splashFadeIn">
@@ -51,6 +44,6 @@
 		<s:Image horizontalCenter="0" verticalCenter="0" source="@Embed('assets/pics/instruction.jpg')" cacheAsBitmap="true" />
 	</s:Group>
 	<s:Group id="resultGroup" width="100%" height="100%" includeIn="result" >
-		<s:Button id="restartButton" label="Restart Game" x="1000" y="500" includeIn="result" click="restartGame(event)"/>
+		
 	</s:Group>
 </s:WindowedApplication>
