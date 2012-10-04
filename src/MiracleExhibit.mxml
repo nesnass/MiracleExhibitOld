@@ -23,7 +23,6 @@
 	</fx:Declarations>
 	
 	<s:states>
-		<s:State name="welcome" />
 		<s:State name="instruction" />
 		<s:State name="game" />
 		<s:State name="result" />
@@ -34,7 +33,7 @@
 			<s:Image id="bckImage" />
 			<s:VideoDisplay id="videoPlayer" source="{videoSource}" width="580" height="836" autoPlay="true" loop="true" visible ="false"/>
 			<s:VideoDisplay id="videoPlayer2" source="{videoSource2}" width="580" height="836" autoPlay="true" loop="true" visible="false"/>
-		</s:Group>
+		</s:Group>	
 		<local:HP_FLEX id="swfHP"/>
 		<s:RichText id="countDown" text="{countDownText}" x="{960 - int(countDown.width/2)}" y="500" fontSize="200" fontWeight="bold" visible="false" />
 		<s:Group x="300" y="1050">
@@ -43,9 +42,7 @@
 		</s:Group>
 		<!--s:Line id="yearLine" includeIn="game" xFrom="300" xTo="1700" yFrom="1300" yTo="1300" stroke="{xAxis}"/-->
 		<!--s:Line includeIn="game" xFrom="300" xTo="300" yFrom="1150" yTo="1300" stroke="{xAxis}"/-->
-		
 		<s:Image id="houseImage" source="assets/pics/house.png" x="280" y="1100" />
-		<s:Button id="restartButton" label="Restart Game" x="1700" y="1070" includeIn="game" click="restartGame(event)"/>
 		<s:Group width="100%" height="150">
 			<s:Rect width="100%" height="100%">
 				<s:fill>
@@ -54,16 +51,18 @@
 			</s:Rect>
 		</s:Group>
 	</s:Group>
+	<s:Rect x="230" y="550" width="5" height="40" includeIn="game">
+		<s:fill>
+			<s:SolidColor color="0x33CC00" />
+		</s:fill>
+	</s:Rect>
 	
-	<s:Group id="splashGroup" width="100%" height="100%" includeIn="welcome" hideEffect="splashFadeOut" showEffect="splashFadeIn">
-		<s:Image horizontalCenter="0" verticalCenter="0" source="@Embed('assets/pics/splash.jpg')" cacheAsBitmap="true"/>
-	</s:Group>
 	<s:Group id="instructionGroup" width="100%" height="100%" includeIn="instruction" hideEffect="splashFadeOut" showEffect="splashFadeIn">
 		<s:Image horizontalCenter="0" verticalCenter="0" source="@Embed('assets/pics/instruction.jpg')" cacheAsBitmap="true" />
 	</s:Group>
-	<s:Group id="resultGroup" width="100%" height="100%" includeIn="result" >
-		<s:BorderContainer includeIn="result" height="300" width="1400" x="250" y="1100" borderVisible="false">
-			<mx:ColumnChart id="columnChart" verticalCenter="10"/>	
-		</s:BorderContainer>
-	</s:Group>
+	<s:VGroup id="resultGroup" width="100%" height="100%" includeIn="result" horizontalAlign="center" >
+			<mx:ColumnChart id="columnChart" />	
+			<s:Label text="Energy transferred in a full year" fontSize="30" />
+			<s:Button id="restartButton" label="Restart Game"  includeIn="result" click="restartGame(event)"/>
+	</s:VGroup>
 </s:WindowedApplication>

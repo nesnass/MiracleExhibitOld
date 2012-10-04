@@ -4,8 +4,7 @@ import com.daveoncode.logging.LogFileTarget;
 import com.greensock.TweenLite;
 import com.greensock.easing.*;
 import com.phidgets.PhidgetInterfaceKit;
-import com.phidgets.events.PhidgetDataEvent;
-import com.phidgets.events.PhidgetEvent;
+import com.phidgets.events.*;
 
 import fl.motion.Color;
 
@@ -45,66 +44,51 @@ import mx.logging.Log;
 import mx.logging.LogEventLevel;
 import mx.managers.CursorManager;
 
-private var phid:PhidgetInterfaceKit;
-private var lastReadData:Number;
-private var resetInterval:Number;
+public var phid:PhidgetInterfaceKit = new PhidgetInterfaceKit();
+
+private var lastReadData:int;
 private var seasonalOffset:Number = START_TEMP;
 private var monthCounter:uint = 0;
 private var LOW_LIMIT:uint = 480;
 private var HIGH_LIMIT:uint = 520;
 private var LOW_LIMIT_GAME:uint = 486;
 private var HIGH_LIMIT_GAME:uint = 514;
-private var CRANK_SENSITIVITY:uint = 2;
 private var INITIAL_REFERENCE_VALUE:uint = 500;
-private var TEMP_TO_REFERENCE_RATIO:Number = 0.1;
-private const RESET_INTERVAL_VALUE:uint = 15000;
-private const STEP_TIME:uint = 250;
-private const PIXEL_INCREMENT:uint = 7;
-private const PIXELS_PER_DEGREE:uint = 10;
-private const START_TEMP:int = -2;
-private var VALUE_STEP:Number = 3;
-private const GAME_INTERVAL:uint = 750; // Milliseconds per step
-private const GAME_COUNTS:uint = 52;     // Number of steps
-private const COUNTDOWN_INTERVAL:uint = 2000;
-private const COUNTDOWN_SECONDS:uint = 3;
-private const INSTRUCTION_INTERVAL:uint = 4000;
+private var VALUE_STEP:uint = 5; // How many read values per change in temperature
+
 private const MIN_HOUSE_THERMO:int = -7;
 private const MAX_HOUSE_THERMO:int = 40;
 private const COMFY_MIN_HOUSE_THERMO:int = 15;
 private const COMFY_MAX_HOUSE_THERMO:int = 21;
-private var gameStateReady:Boolean = false;
+private const GAME_START_OFFSET:uint = 30;
+private const PIXELS_PER_DEGREE:uint = 10;
+private const START_TEMP:int = -2;
+private const GAME_INTERVAL:uint = 375; // Milliseconds per step
+private const GAME_COUNTS:uint = 104;     // Number of steps (four samples per month)
+private const COUNTDOWN_INTERVAL:uint = 2000;
+
 private var firstRun:Boolean = true;
 private var readysetgo:Boolean = true;
+private var sampleInterval:uint;
 
-private var tempTable:Dictionary = new Dictionary();
-private var gameTable:Dictionary = new Dictionary();
-private var resultTable:Dictionary = new Dictionary();
-private var tHusBGColour:Color = new Color();
+private var tempTable:Dictionary = new Dictionary();  // Matches sensor read values to temperature values
+private var seasonalTempTable:Dictionary = new Dictionary();  // Matches the current game sample point to the current seasonal outdoor temperature
 
-[Bindable] private var temperatureLevel:Number = 500;
 [Bindable] private var videoSource:String;
 [Bindable] private var videoSource2:String;
 [Bindable] private var countDownText:String = "READY..";
 
-// [Bindable] private var tempHusText:String = String(seasonalOffset);
-
-private var process:NativeProcess;
-private var nativeProcessStartupInfo:NativeProcessStartupInfo
-
-private var countingUp:Boolean = false;
-private var countingDown:Boolean = false;
+//private var process:NativeProcess;
+//private var nativeProcessStartupInfo:NativeProcessStartupInfo
 private var tempLevel:uint;
-private var instructionInterval:Number;
-
+private var tHusBGColour:Color = new Color();
 private var gameTimer:Timer;
 
-private const WARMING_TEXT:String = "                                              Varme flyttes fra utsiden (jord, luft eller vann) av huset til innsiden av huset.                                              Du varierer trykket i ulike deler av varmepumpa.                                              I en varmepumpe veksler det derfor mellom væske og gass.                                              Fordampning krever energi og kondensering avgir energi.";
-private const COOLING_TEXT:String = "                                              Varme flyttes fra innsiden av huset til utsiden av huset.                                              Du varierer trykket i ulike deler av varmepumpa.                                              I en varmepumpe veksler det derfor mellom væske og gass.                                              Fordampning krever energi og kondensering avgir energi.                                              Et kjøleskap er en varmepumpe.";
-
-private var monthNames:ArrayCollection = new ArrayCollection(["July","August","September","October","November","December","January","February","March","April","May","June"]);
+// private var monthNames:ArrayCollection = new ArrayCollection(["July","August","September","October","November","December","January","February","March","April","May","June"]);
 private var monthlyTotals:Object = {month:"January", score:0, sourceEnergyTransferred:0, crankEnergy:0, outdoorTemp:0};
+
+// Store the results of the game for each month
 [Bindable]
-//private var yearlyData:ArrayCollection = new ArrayCollection();
 private var yearlyData:ArrayCollection = new ArrayCollection([
 	{month:"January", score:0, sourceEnergyTransferred:0,
 		crankEnergy:0, outdoorTemp:0},
@@ -132,12 +116,10 @@ private var yearlyData:ArrayCollection = new ArrayCollection([
 		crankEnergy:0, outdoorTemp:0}
 ]);
 
-
 protected function initApp(event:FlexEvent):void {
 	this.stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
 	setupAndLaunch();
 }
-
 
 private function setupChart():void {
 	columnChart.dataProvider = yearlyData;
@@ -181,7 +163,8 @@ private function setupChart():void {
 
 // Initial setup of Phidget controller & game timer
 public function setupAndLaunch():void
-{     
+{
+	/*
 	nativeProcessStartupInfo = new NativeProcessStartupInfo();
 	var file:File = File.applicationDirectory.resolvePath("/usr/bin/python");
 	nativeProcessStartupInfo.executable = file;
@@ -199,28 +182,33 @@ public function setupAndLaunch():void
 	process.addEventListener(NativeProcessExitEvent.EXIT, onExit);
 	process.addEventListener(IOErrorEvent.STANDARD_OUTPUT_IO_ERROR, onIOError);
 	process.addEventListener(IOErrorEvent.STANDARD_ERROR_IO_ERROR, onIOError);
-	
+
+	process.start(nativeProcessStartupInfo);
+	*/
 	gameTimer = new Timer(COUNTDOWN_INTERVAL,0);
 	gameTimer.addEventListener(TimerEvent.TIMER, timeGame);
 	
-	process.start(nativeProcessStartupInfo);
+	phid.open("localhost",5001);
+	//phid.addEventListener(PhidgetDataEvent.SENSOR_CHANGE, onOutputData);
+	phid.addEventListener(PhidgetEvent.ATTACH, onAttach);
 	
 	videoSource2 = "assets/vids/hp.mp4";
 	videoSource = "assets/vids/hpf.mp4";
 	
+	// instructionInterval = setInterval(function():void {gameStateReady = true;}, INSTRUCTION_INTERVAL);
 	//this.currentState="game";
 }
 
-// Configure tables that correspond months and raw data to temperature levels
+// Configure tables that correspond months with raw data to temperature levels
+// +-140 is a realistic readout range from Phidget from none to maximum speed handle cranking
 private function setupTables():void
 {
 	// Phidget data values corresponding to equivalent Temperature level
 	var counter:Number;
-	VALUE_STEP = 5;
 	tempTable[INITIAL_REFERENCE_VALUE] = 0;
 	
 	// Set table to contain 50 degrees in either direction
-	for(counter=0.5; counter<51; counter+=0.5) {
+	for(counter=1; counter<51; counter+=1) {
 		tempTable[INITIAL_REFERENCE_VALUE + VALUE_STEP*counter] = counter;
 		tempTable[INITIAL_REFERENCE_VALUE - VALUE_STEP*counter] = -counter;
 	}
@@ -231,30 +219,47 @@ private function setupTables():void
 	LOW_LIMIT_GAME = INITIAL_REFERENCE_VALUE - VALUE_STEP * 2;
 	HIGH_LIMIT_GAME = INITIAL_REFERENCE_VALUE + VALUE_STEP * 2;
 	
-	// Corresponds month value to the average outdoor temperature at that month, and used to store results
-	// Month 1 = Jul
-	
 	// Populate sourceTable with a basic cosine wave which determines the external temperature over the year
 	for(counter=1; counter<GAME_COUNTS+1; counter++) {
-		gameTable[counter] = int(18*Math.cos(2*Math.PI*counter/GAME_COUNTS + Math.PI) + 15);
+		seasonalTempTable[counter] = int(18*Math.cos(2*Math.PI*counter/GAME_COUNTS + Math.PI) + 15);
 	}
-
 }
 
 // Reads raw data from the Phidget device when a data output event occurrs
-public function onOutputData(event:ProgressEvent):void
+public function onOutputData(event:PhidgetDataEvent):void
 {
+	lastReadData = int(event.Data);
+	
+	// The first sample is to determine the steady state value
+	if(firstRun) {
+		INITIAL_REFERENCE_VALUE = phid.getSensorValue(6);
+		setupTables();
+		firstRun = false;
+	}
+		// In game state, use the data to upate the screen graphics
+	else if(this.currentState == "game")
+		gameUpdate();
+		// In Instruction mode, use the data to run the speedometer, to initiate the game
+	else
+		introUpdate();
+	
+	/*
 	try {
+		// Take a sample of data from the Phidget
 		lastReadData = Number(process.standardOutput.readUTFBytes(process.standardOutput.bytesAvailable));
+
+		// The first sample is to determine the steady state value
 		if(firstRun) {
-			INITIAL_REFERENCE_VALUE = temperatureLevel = lastReadData;
+			INITIAL_REFERENCE_VALUE = lastReadData;
 			setupTables();
 			firstRun = false;
 		}
+		// In game state, use the data to upate the screen graphics
 		else if(this.currentState == "game")
-			sensorUpdate();
+			gameUpdate();
+		// In Instruction mode, use the data to run the speedometer, to initiate the game
 		else
-			stateChanger();
+			introUpdate();
 	}
 	catch(e:Error) {
 		if(e.errorID == 2030) {
@@ -264,6 +269,7 @@ public function onOutputData(event:ProgressEvent):void
 		}
 		return;
 	}
+	*/
 }
 
 // The method called to manage timer events :  First the count down, then the month change and statistic recording
@@ -275,11 +281,7 @@ private function timeGame(event:TimerEvent):void {
 			countDown.visible = false;
 			readysetgo = false;
 		//	timeChart.graphics.moveTo(0,100);
-			gameTimer.reset();
-			gameTimer.delay = GAME_INTERVAL;
-			gameTimer.repeatCount = GAME_COUNTS-1;
-			gameTimer.addEventListener(TimerEvent.TIMER_COMPLETE, stopGame);
-			gameTimer.start();
+
 		}
 		else {
 			if(countDownText == "READY..")
@@ -287,24 +289,29 @@ private function timeGame(event:TimerEvent):void {
 			else if(countDownText == "SET..") {
 				countDownText = "GO!";
 				countDownFadeOut.play();
+				gameTimer.reset();
+				gameTimer.delay = GAME_INTERVAL;
+				gameTimer.repeatCount = GAME_COUNTS-1;
+				gameTimer.addEventListener(TimerEvent.TIMER_COMPLETE, stopGame);
+				gameTimer.start();
 			}
 		}
 	}
-	// During the game, the house is made to slide acrosss the screen as the months progress. 
+	// During the game, the house is made to slide acrosss the screen as the months progress.
 	// seasonalOffset is a temperature value (in pixels) updated correspondingly
 	// Source input slider slowly moves up and down in accordance with the season
 	else {
 		var tempLevel:uint = int((lastReadData - INITIAL_REFERENCE_VALUE) / VALUE_STEP)*VALUE_STEP + INITIAL_REFERENCE_VALUE;
 		
-		
-		seasonalOffset = gameTable[gameTimer.currentCount];
 		monthCounter += 1;
 		
-		//yearlyData Format: {month:"January", score:120, sourceEnergyTransferred:45, crankEnergy:102, outdoorTemp:23}
-		if(monthCounter % 4 == 0) {
-			var update:Object = yearlyData.getItemAt(monthCounter/4 -1);
-			update.sourceEnergyTransferred = monthlyTotals.sourceEnergyTransferred/4; 
-			yearlyData.setItemAt(update, monthCounter/4 -1);
+		//yearlyData Format example: {month:"January", score:120, sourceEnergyTransferred:45, crankEnergy:102, outdoorTemp:23}
+		// % value depends on number of GAME_COUNTS - eg. one year has 52 weeks so if collecting data per month, divide by 4
+		// At present resolution (therefore GAME_COUNTS) is higher to support a smoother change of Outside temp marker on screen
+		if(monthCounter % 8 == 0) {
+			var update:Object = yearlyData.getItemAt(monthCounter/8 -1);
+			update.sourceEnergyTransferred = monthlyTotals.sourceEnergyTransferred/8; 
+			yearlyData.setItemAt(update, monthCounter/8 -1);
 			// addItem({month:monthNames.getItemAt(monthCounter/4 -1), score:0, sourceEnergyTransferred:monthlyTotals.sourceEnergyTransferred/4 });
 			monthlyTotals.sourceEnergyTransferred = 0;
 		}
@@ -314,7 +321,9 @@ private function timeGame(event:TimerEvent):void {
 			// In reality the crank energy will be constant, but over time more cranking is done in colder/hotter months
 			// monthlyTotals.crankEnergy = 1000*7;
 		}
-		// 13 pixels per degree. 75px is the 0 degree point on thermometer graphic.  +-140 realistic readout range from Phidget for 0 to Max handle cranking
+		
+		// 10 pixels per degree. 75px is the 0 degree point on thermometer graphic.  +-140 realistic readout range from Phidget for 0 to Max handle cranking
+		seasonalOffset = seasonalTempTable[gameTimer.currentCount];
 		swfHP.Temp.tOut.tempOutText.text = String(seasonalOffset);
 		TweenLite.to(swfHP.Temp.tOut, GAME_INTERVAL/1000, {y:75 - seasonalOffset*PIXELS_PER_DEGREE, ease:Linear.easeNone});
 
@@ -329,13 +338,14 @@ private function timeGame(event:TimerEvent):void {
 			
 	//	timeChart.graphics.lineTo(houseImage.x+25 - 300, 100);
 		
-		TweenLite.to(houseImage, GAME_INTERVAL/1000, {x:houseImage.x+25, ease:Linear.easeNone});
+		TweenLite.to(houseImage, GAME_INTERVAL/1000, {x:houseImage.x+(timeChart.width/GAME_COUNTS), ease:Linear.easeNone});
 		
 	}
 }
 
-// Clean up and reset variables when game is completed
+// Clean up and reset variables when game is completed and show results
 private function stopGame(event:TimerEvent):void {
+	clearInterval(sampleInterval);
 	gameTimer.reset();
 	gameTimer.removeEventListener(TimerEvent.TIMER_COMPLETE, stopGame);
 	gameTimer.delay = COUNTDOWN_INTERVAL;
@@ -343,14 +353,14 @@ private function stopGame(event:TimerEvent):void {
 	monthCounter = 0;
 	readysetgo = true;
 	countDownText = "READY..";
-	//	this.currentState = "result";
-	gameStateReady = false;
+	this.currentState = "result";
+	setupChart();
 }
 
 // A button handler allowing the game to be started over again
 private function restartGame(event:MouseEvent):void {
 	this.currentState = "game";
-	swfHP.Temp.tHus.y = 75 + (int((INITIAL_REFERENCE_VALUE - lastReadData)*167.5/70));
+	swfHP.Temp.tHus.y = 75;
 	houseImage.x = 280;
 	monthCounter = 0;
 	swfHP.mv_default.visible = true;
@@ -358,27 +368,46 @@ private function restartGame(event:MouseEvent):void {
 	swfHP.mv_blue.visible = false;
 	countDown.visible = true;
 	countDown.alpha = 1;
+	timeChart.graphics.clear();
 	gameTimer.start();
+	sampleInterval = setInterval(takeSample, 100);
 }
 
-public function onErrorData(event:ProgressEvent):void
-{
-	trace("ERROR -", process.standardError.readUTFBytes(process.standardError.bytesAvailable)); 
+
+public function onAttach(evt:PhidgetEvent):void {
+	phid.setSensorChangeTrigger(6, 5);
+	sampleInterval = setInterval(takeSample, 100);
 }
 
-public function onExit(event:NativeProcessExitEvent):void
-{
-	trace("Process exited with ", event.exitCode);
+// Called at the samle rate, takes a sample and determines whether to 
+public function takeSample():void {
+	// trace(flash.utils.getTimer()/1000);
+	lastReadData = phid.getSensorValue(6);
+	
+	// The first sample is to determine the steady state value
+	if(firstRun) {
+		INITIAL_REFERENCE_VALUE = lastReadData;
+		setupTables();
+		firstRun = false;
+	}
+		// In game state, use the data to upate the screen graphics
+	else if(this.currentState == "game")
+		gameUpdate();
+		// In Instruction mode, use the data to run the speedometer, to initiate the game
+	else
+		introUpdate();
 }
 
-public function onIOError(event:IOErrorEvent):void
-{
-	trace(event.toString());
+private function onInputChange(evt:PhidgetDataEvent):void{
+	trace(evt.Index);
+	trace(evt.Data);
 }
 
-private function onDetach(evt:PhidgetEvent):void{
-	trace("Detached");
+
+private function onSensorChange(evt:PhidgetDataEvent):void{
+	trace(evt);
 }
+
 
 private function onDisconnect(evt:PhidgetEvent):void{
 	trace("Disconnected");
@@ -386,44 +415,29 @@ private function onDisconnect(evt:PhidgetEvent):void{
 
 private function onConnect(evt:PhidgetEvent):void{
 	trace("Connected");
-	this.stage.nativeWindow.activate();
-	this.stage.nativeWindow.orderToBack();
-	this.stage.nativeWindow.orderToFront();
-	Mouse.hide();
+//	this.stage.nativeWindow.activate();
+//	this.stage.nativeWindow.orderToBack();
+//	this.stage.nativeWindow.orderToFront();
+//	Mouse.hide();
 }
 
-// Manage transition through Intro, Instruction, Game and Stats pages
-private function stateChanger():void {
-	switch(this.currentState) {
-		case "welcome":
-			if(lastReadData > HIGH_LIMIT || lastReadData < LOW_LIMIT) {
-				this.currentState = "instruction";
-				// Allows enough time for crank to settle, else may change to game state too early 
-				instructionInterval = setInterval(function():void {gameStateReady = true;}, INSTRUCTION_INTERVAL);
-			}
-			break;
-		case "instruction":
-			if(gameStateReady && lastReadData > HIGH_LIMIT || lastReadData < LOW_LIMIT) {
-				this.currentState = "game";
-//				setupChart();
-				swfHP.Temp.tHus.y = 75;
-				swfHP.Temp.tOut.y = 75 - PIXELS_PER_DEGREE*START_TEMP;
-				swfHP.Temp.tOut.tempOutText.text = String(seasonalOffset);
-		//		houseImage.x = PIXELS_PER_DEGREE*START_TEMP;
-				swfHP.mv_default.visible = true;
-				swfHP.mv_red.visible = false;
-				swfHP.mv_blue.visible = false;
-				countDown.visible = true;
-				gameTimer.start();
-			}
-			break;
-		case "result":
-			break;
+// Called during first screen, to update the speedometer and start the game
+private function introUpdate():void {
+	if(lastReadData > 0 && (lastReadData > GAME_START_OFFSET + INITIAL_REFERENCE_VALUE || lastReadData < INITIAL_REFERENCE_VALUE - GAME_START_OFFSET)) {
+		this.currentState = "game";
+		swfHP.Temp.tHus.y = 75;
+		swfHP.Temp.tOut.y = 75 - PIXELS_PER_DEGREE*START_TEMP;
+		swfHP.Temp.tOut.tempOutText.text = String(seasonalOffset);
+		swfHP.mv_default.visible = true;
+		swfHP.mv_red.visible = false;
+		swfHP.mv_blue.visible = false;
+		countDown.visible = true;
+		gameTimer.start();
 	}
 }
-
 // Called during game play, each time a sensor vale is given
-private function sensorUpdate():void {
+private function gameUpdate():void {
+
 	if(lastReadData > HIGH_LIMIT_GAME) {
 		swfHP.mv_default.visible = false;
 		swfHP.mv_red.visible = true;
@@ -446,21 +460,28 @@ private function sensorUpdate():void {
 		videoPlayer.visible = false;
 	}
 
-	// Normalise the read value to match a table value
+	// Normalise the read value to match one of the tempTable values
+	// var oldTemp:int = tempLevel;
 	tempLevel = int((lastReadData - INITIAL_REFERENCE_VALUE) / VALUE_STEP)*VALUE_STEP + INITIAL_REFERENCE_VALUE;
-	
+//	trace("temp: " + tempLevel + " raw: " + lastReadData + "ref: " + INITIAL_REFERENCE_VALUE);
+	// Move the temperature tag, only within the bounds of the thermometer
 	if(MIN_HOUSE_THERMO < (tempTable[tempLevel] + seasonalOffset) && (tempTable[tempLevel] + seasonalOffset) < MAX_HOUSE_THERMO) {
 	
-		// House temp reading calculated here from tempTable, accounting for outdoor offset
-		// 13 pixels per degree. 75px is the 0 degree point on thermometer graphic.  +-140 realistic readout range from Phidget for 0 to Max handle cranking
-		swfHP.Temp.tHus.tempHusText.text = String(tempTable[tempLevel] + seasonalOffset);
-		TweenLite.to(swfHP.Temp.tHus, GAME_INTERVAL/1000, {y:75 - (tempTable[tempLevel] + seasonalOffset)*PIXELS_PER_DEGREE, ease:Linear.easeNone});
-		if(COMFY_MIN_HOUSE_THERMO < (tempTable[tempLevel] + seasonalOffset) && (tempTable[tempLevel] + seasonalOffset) < COMFY_MAX_HOUSE_THERMO) {
+		// Update the colour of the indoor temperature tag
+		if(COMFY_MIN_HOUSE_THERMO < (tempTable[tempLevel] + seasonalOffset) && (tempTable[tempLevel] + seasonalOffset) < COMFY_MAX_HOUSE_THERMO)
 			tHusBGColour.brightness = 0;
-		}
 		else
 			tHusBGColour.brightness = -1;
 		swfHP.Temp.tHus.tHusBG.transform.colorTransform = tHusBGColour;
+
+		
+		// House temp reading calculated here from tempTable, accounting for outdoor offset
+		// 10 pixels per degree. 75px is the 0 degree point on thermometer graphic.
+		swfHP.Temp.tHus.tempHusText.text = String(tempTable[tempLevel] + seasonalOffset);
+		//swfHP.Temp.tHus.y = 75 - (tempTable[tempLevel] + seasonalOffset)*PIXELS_PER_DEGREE;
+		TweenLite.to(swfHP.Temp.tHus, 0.1, {y:75 - (tempTable[tempLevel] + seasonalOffset)*PIXELS_PER_DEGREE, ease:Linear.easeNone});
+		
+
 	}
 }
 
