@@ -8,10 +8,20 @@
 	<fx:Declarations>
 		<s:Fade id="splashFadeIn" alphaFrom="0" alphaTo="1" duration="1500" />
 		<s:Fade id="splashFadeOut" alphaFrom="1" alphaTo="0" duration="1500" />
-		<s:Fade id="countDownFadeOut" alphaFrom="1" alphaTo="0" duration="500" target="{countDown}" />
+		<!--s:Fade id="countDownFadeOut" alphaFrom="1" alphaTo="0" duration="500" target="{countDown}" /-->
 		<s:SolidColorStroke id="xAxis" color="0xFF0000" weight="1"/>
 		<s:SolidColorStroke id="yAxis" color="0x0000FF" weight="1"/>
 	</fx:Declarations>
+	
+	<fx:Style>
+		@namespace s "library://ns.adobe.com/flex/spark";
+		@namespace mx "library://ns.adobe.com/flex/mx";
+		
+		mx|LegendItem {
+			fontSize: 20;
+			fontWeight: normal;
+		}
+	</fx:Style>
 	
 	<s:states>
 		<s:State name="instruction" />
@@ -23,23 +33,27 @@
 			<s:Graphic id="timeChart" x="1" y="1" width="1072" height="40" />
 		</s:Group>
 		<local:HP_Gameplay id="hpGame" />
-		<s:Group left="405" top="205" scaleX="0.8" scaleY="0.79">
+		<!--local:HP_Cross id="hpCross" /-->
+		<s:Group left="405" top="205" scaleX="0.8" scaleY="0.79" >
 			<s:VideoDisplay id="videoPlayer" source="{videoSource}" width="550" height="836" autoPlay="true" loop="true" visible ="false"/>
 			<s:VideoDisplay id="videoPlayer2" source="{videoSource2}" width="580" height="836" autoPlay="true" loop="true" visible="false"/>
+			<s:SpriteVisualElement id="crossOverlay" x="189" y="4" width="200" height="200"/>
+			<s:SpriteVisualElement id="ventOverlay" x="189" y="630" />
 		</s:Group>
 		<!--s:Image id="pngsquizzle" source="assets/pics/PNGSQIZZLE.png" left="360" top="190"/-->
-		<s:RichText id="countDown" text="{countDownText}" x="{640 - int(countDown.width/2)}" y="500" fontSize="175" fontWeight="bold" visible="false" />
+		<!--s:RichText id="countDown" text="{countDownText}" x="{640 - int(countDown.width/2)}" y="500" fontSize="175" fontWeight="bold" visible="false" /-->
+		<s:SWFLoader id="cdwn" enabled="false" source="assets/flash/countdown.swf" x="370" y="320" visible="false"/>
 	</s:Group>
-	<s:Group id="instructionGroup" width="100%" height="100%" includeIn="instruction" hideEffect="splashFadeOut" showEffect="splashFadeIn">
-		<local:HP_Start id="hpStart" />
+	<s:Group id="instructionGroup" width="100%" height="100%" includeIn="instruction" >
+		<local:HP_Start id="hpStart"/>
 		<!--local:HP_Guage id="swfGuageInstruction" x="500" y="860" scaleX=".35" scaleY=".35" /-->
 	</s:Group>
 	<s:Group id="resultGroup" includeIn="result">
 		<!--local:HP_Guage id="swfGuageResult" x="100" scaleX=".4" scaleY=".4" /-->
 		<!--s:Label id="scoreText" text="" fontSize="50" /-->
 		<local:HP_Finish id="hpFinish"  />
-		<mx:ColumnChart id="columnChart" includeIn="result" visible="false" z="2" x="150" y="700" width="500"></mx:ColumnChart>
-		<mx:Box id="legend" x="1100" y="700" visible="false"/>
+		<mx:ColumnChart id="columnChart" includeIn="result" visible="false" z="2" x="150" y="650" width="300"></mx:ColumnChart>
+		<mx:Box id="legend" x="500" y="550" visible="false" z="3"/>
 		<!--s:Label text="Energy transferred in a full year" fontSize="30" /-->
 	</s:Group>
 	<!--s:Button id="restartButton" label="Restart Game"  includeIn="result" click="restartGame(event)"/-->

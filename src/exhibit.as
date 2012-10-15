@@ -5,10 +5,13 @@ import com.greensock.easing.*;
 import com.phidgets.PhidgetInterfaceKit;
 import com.phidgets.events.*;
 
+import fl.motion.*;
 import fl.motion.Color;
 
 import flash.desktop.NativeProcess;
 import flash.desktop.NativeProcessStartupInfo;
+import flash.display.Loader;
+import flash.display.Sprite;
 import flash.display.StageDisplayState;
 import flash.events.Event;
 import flash.events.IOErrorEvent;
@@ -17,6 +20,11 @@ import flash.events.NativeProcessExitEvent;
 import flash.events.ProgressEvent;
 import flash.events.TimerEvent;
 import flash.filesystem.File;
+import flash.geom.Matrix;
+import flash.geom.Point;
+import flash.geom.Rectangle;
+import flash.net.URLRequest;
+import flash.net.dns.AAAARecord;
 import flash.system.Capabilities;
 import flash.system.System;
 import flash.ui.Mouse;
@@ -37,6 +45,7 @@ import mx.charts.series.ColumnSeries;
 import mx.charts.series.ColumnSet;
 import mx.collections.ArrayCollection;
 import mx.collections.ArrayList;
+import mx.core.UIComponent;
 import mx.events.FlexEvent;
 import mx.logging.ILogger;
 import mx.logging.Log;
@@ -58,15 +67,15 @@ private var VALUE_STEP:uint = 5; // How many read values per change in temperatu
 private var DEGREE_RANGE:uint = 60; // Temperature range to be used in either direction 
 private const MIN_HOUSE_THERMO:int = -7;
 private const MAX_HOUSE_THERMO:int = 40;
-private const COMFY_MIN_HOUSE_THERMO:int = 16;
-private const COMFY_MAX_HOUSE_THERMO:int = 20;
+private const COMFY_MIN_HOUSE_THERMO:int = 15;
+private const COMFY_MAX_HOUSE_THERMO:int = 21;
 private const GAME_START_OFFSET:uint = 65;
 private const PIXELS_PER_DEGREE:uint = 60;
 private const LARGE_PIXELS_PER_DEGREE:uint = 120;
 private const tempMarksBG_Y:int = -1995;
 private const tempMarks_Y:int = -4420;
 private const GAME_COUNTS:uint = 96;     // Number of steps (eight samples per month)
-private const COUNTDOWN_INTERVAL:uint = 2000;
+private const COUNTDOWN_INTERVAL:uint = 1200;
 //private const COUNTDOWN_INTERVAL:uint = 500;
 private const GAME_INTERVAL:uint = 375; // Milliseconds per step
 //private const GAME_INTERVAL:uint = 100;
@@ -74,6 +83,10 @@ private const GAME_INTERVAL:uint = 375; // Milliseconds per step
 private var firstRun:Boolean = true;
 private var readysetgo:Boolean = true;
 private var sampleInterval:uint;
+private var crossSpeed:Number = 0;
+private var cross:Loader = new Loader();
+private var ptRotationPoint:Point;
+private var rotator:Rotator;
 
 private var tempTable:Dictionary = new Dictionary();  // Matches sensor read values to temperature values
 private var seasonalTempTable:Dictionary = new Dictionary();  // Matches the current game sample point to the current seasonal outdoor temperature
@@ -167,19 +180,19 @@ private function setupChart():void {
 	series1.setStyle("fill", 0xF9BE10);
 	series1.yField = "idealEnergyTransferred";
 	series1.xField = "month";
-	series1.displayName = "Ideal Energy Transferred";
+	series1.displayName = "Energy Required";
 	
 	var series2:ColumnSeries = new ColumnSeries();
 	series2.setStyle("fill", 0x0056B8);
 	series2.yField = "sourceEnergyTransferred";
 	series2.xField = "month";
-	series2.displayName = "Source Energy Transferred";
+	series2.displayName = "Outdoor Energy Transferred";
 
 	var series3:ColumnSeries = new ColumnSeries();
 	series3.setStyle("fill", 0x369D31);
 	series3.yField = "crankEnergy";
 	series3.xField = "month";
-	series3.displayName = "Crank Energy";
+	series3.displayName = "Crank Energy Used";
 	
 	innerSet.series = [series1, series2, series3];
 	
@@ -189,20 +202,28 @@ private function setupChart():void {
 	columnChart.maxHeight = 300;
 	
 	var myLegend:Legend = new Legend();
-	myLegend.setStyle("fontSize", 25);
 	myLegend.dataProvider = columnChart;
 	legend.addChild(myLegend);
 	
 	var totalScore:int = 0;
+	var totalEnergyTransferred:Number = 0;
+	var totalCrankEnergy:Number = 0;
+	
 	for each(var o:Object in yearlyData) {
 		totalScore += o.score;
+		totalEnergyTransferred += o.sourceEnergyTransferred;
+		totalCrankEnergy += o.crankEnergy;
 	}
 	totalScore = 100*totalScore/GAME_COUNTS;
+	hpFinish.endText.visible = false;
 	hpFinish.guageFinishGroup.scoreFinish.score.scoreTxt.text = String(totalScore) + "%";
 	hpFinish.guageFinishGroup.guageArrow.rotation = -90;
 	hpFinish.guageFinishGroup.scaleX = 1.5;
 	hpFinish.guageFinishGroup.scaleY = 1.5;
 	hpFinish.guageFinishGroup.y = 800;
+	
+	hpFinish.endText.txt.text = "Prøv å holde temperaturen enda mer stabil for å bedre resultatet!"+"\n"
+		+"I løpet av året brukte du "+int(totalEnergyTransferred)+" KW timer. "+int(totalCrankEnergy)+" gikk med til å drive varmepumpa, resten ble hentet fra lufta utendørs.";
 	
 	// Multiplies by 0.9 to fit the needle into the guage!
 	TweenLite.to(hpFinish.guageFinishGroup.guageArrow, 3, {rotation: (1.8*totalScore - 90)*0.9, ease:Bounce.easeOut, onComplete: completeLastScreen});
@@ -213,7 +234,11 @@ private function completeLastScreen():void {
 }
 private function showChart():void {
 	columnChart.visible = true;
+	hpFinish.endText.visible = true;
 	legend.visible = true;
+}
+private function enterFrame(event:Event):void {
+	rotator.rotation += crossSpeed;
 }
 
 // Initial setup of Phidget controller & game timer
@@ -312,14 +337,17 @@ public function onOutputData(event:PhidgetDataEvent):void
 private function timeGame(event:TimerEvent):void {
 	if(readysetgo) {
 		if(countDownText == "3..") {
-			countDownText = "2..";
+			countDownText = "2.."
 		}
 		else if(countDownText == "2..") {
 			countDownText = "1..";
 		}
 		else if(countDownText == "1..") {
 			countDownText = "GO!";
-			countDownFadeOut.play();
+			cdwn.visible = false;
+//			countDownFadeOut.play();
+			hpGame.TEMPERATURE.left_temp_mc.leftMarks.y = tempMarks_Y + seasonalTemperature*LARGE_PIXELS_PER_DEGREE;
+			hpGame.TEMPERATURE.left_temp_mc.leftMarksBG.y = tempMarksBG_Y + seasonalTemperature*PIXELS_PER_DEGREE;
 			readysetgo = false;
 			gameTimer.reset();
 			gameTimer.delay = GAME_INTERVAL;
@@ -398,24 +426,29 @@ private function stopGame(event:TimerEvent):void {
 	clearInterval(sampleInterval);
 	gameTimer.reset();
 	gameTimer.removeEventListener(TimerEvent.TIMER_COMPLETE, stopGame);
-	gameTimer.delay = COUNTDOWN_INTERVAL;
-	gameTimer.repeatCount = 0;
+	gameTimer.addEventListener(TimerEvent.TIMER_COMPLETE, returnFirstScreen);
+	gameTimer.delay = 20000;
+	gameTimer.repeatCount = 1;
 	monthCounter = 0;
 	readysetgo = true;
 	countDownText = "3..";
+	this.removeEventListener(Event.ENTER_FRAME, enterFrame);
 	this.currentState = "result";
 	setupChart();
+	gameTimer.start();
 }
 
-// A button handler allowing the game to be started over again
-private function restartGame(event:MouseEvent):void {
-	this.currentState = "game";
-	monthCounter = 0;
+// Start the game over again
+private function returnFirstScreen(event:TimerEvent):void {
 	legend.visible = false;
 	columnChart.visible = false;
-	countDown.visible = true;
-	countDown.alpha = 1;
 	timeChart.graphics.clear();
+	this.currentState = "instruction";
+	hpStart.guageArrow.rotation = -80;
+	gameTimer.reset();
+	gameTimer.removeEventListener(TimerEvent.TIMER_COMPLETE, returnFirstScreen);
+	gameTimer.delay = COUNTDOWN_INTERVAL;
+	gameTimer.repeatCount = 0;
 	gameTimer.start();
 	sampleInterval = setInterval(takeSample, 100);
 }
@@ -479,19 +512,50 @@ private function introUpdate():void {
 	
 	if(hpStart.guageArrow.rotation > 80) {
 		this.currentState = "game";
+
+		var ventLoader:Loader = new Loader();
+		ventLoader.load(new URLRequest("assets/pics/vent.png"));
+		
+		ventOverlay.alpha = 0;
+		crossOverlay.alpha = 0;
+		
+		//cross = new Sprite();
+
+		cross = new Loader();
+		cross.load(new URLRequest("assets/pics/crossX.png"));
+	//	cross.addChild(crossLoader);
+
+		var crossLoader2:Loader = new Loader();
+		crossLoader2.load(new URLRequest("assets/pics/crossBG.png"));
+		crossOverlay.addChild(crossLoader2);
+		//cross.setupAnimation();
+
+		crossOverlay.addChild(cross);
+		ventOverlay.addChild(ventLoader);
+		rotator = new Rotator(cross, new Point(100,100));
+		this.addEventListener(Event.ENTER_FRAME, enterFrame);
+		
 		hpGame.heatPump.alpha = 0;
 		hpGame.TEMPERATURE.right_temp_mc.rightMarks.y = tempMarks_Y + seasonalTemperature*LARGE_PIXELS_PER_DEGREE;
 		hpGame.TEMPERATURE.right_temp_mc.rightMarksBG.y = tempMarksBG_Y + seasonalTemperature*PIXELS_PER_DEGREE;
-		hpGame.TEMPERATURE.left_temp_mc.leftMarks.y = tempMarks_Y + seasonalTemperature*LARGE_PIXELS_PER_DEGREE;
-		hpGame.TEMPERATURE.left_temp_mc.leftMarksBG.y = tempMarksBG_Y + seasonalTemperature*PIXELS_PER_DEGREE;
-		countDown.visible = true;
+		hpGame.TEMPERATURE.left_temp_mc.leftMarks.y = tempMarks_Y + 18*LARGE_PIXELS_PER_DEGREE;
+		hpGame.TEMPERATURE.left_temp_mc.leftMarksBG.y = tempMarksBG_Y + 18*PIXELS_PER_DEGREE;
+		//countDown.visible = true;
 		
 		// This is the transition efect of the instruction text and pump fade in, before the countdown begins.
-		TweenLite.to(hpGame.heatPump, 20, {alpha: 1, ease:Expo.easeIn});
-		TweenLite.to(hpGame.startText, 16, {alpha: 0, ease:Expo.easeIn, onComplete: function():void {gameTimer.start();}});
+		TweenLite.to(hpGame.heatPump, 10, {alpha: 1, ease:Expo.easeIn});
+		TweenLite.to(crossOverlay, 10, {alpha: 1, ease:Expo.easeIn});
+		TweenLite.to(ventOverlay, 10, {alpha: 1, ease:Expo.easeIn});
+		TweenLite.to(hpGame.intro_txt, 10, {alpha: 0, ease:Expo.easeIn, onComplete: function():void {initiateCountdown();}});
 	}
 }
 
+private function initiateCountdown():void {
+	cdwn.load("assets/flash/countdown.swf");
+	cdwn.visible = true;
+	cdwn.enabled = true;
+	gameTimer.start();
+}
 
 // Called during game play, each time a sensor vale is given
 private function gameUpdate():void {
@@ -511,10 +575,16 @@ private function gameUpdate():void {
 	if(tempAverage > HIGH_LIMIT_GAME) {
 		videoPlayer.visible = true;
 		videoPlayer2.visible = false;
+		ventOverlay.getChildAt(0).rotation = 0;
+		ventOverlay.getChildAt(0).x = 0;
+		ventOverlay.getChildAt(0).y = 0;
 	}
 	else if(tempAverage < LOW_LIMIT_GAME) {
 		videoPlayer2.visible = true;
 		videoPlayer.visible = false;
+		ventOverlay.getChildAt(0).rotation = 180;
+		ventOverlay.getChildAt(0).x = ventOverlay.getChildAt(0).width;
+		ventOverlay.getChildAt(0).y = ventOverlay.getChildAt(0).height;
 	}
 	else {
 		videoPlayer2.visible = false;
@@ -523,7 +593,7 @@ private function gameUpdate():void {
 
 	// Normalise the read value to match one of the tempTable values
 	tempLevel = int((tempAverage - INITIAL_REFERENCE_VALUE) / VALUE_STEP)*VALUE_STEP + INITIAL_REFERENCE_VALUE;
-	
+	crossSpeed = int(tempTable[tempLevel])*2;
 	// Move the temperature tag, only within the bounds of the thermometer
 	if(MIN_HOUSE_THERMO < (tempTable[tempLevel] + seasonalTemperature) && (tempTable[tempLevel] + seasonalTemperature) < MAX_HOUSE_THERMO) {
 		TweenLite.to(hpGame.TEMPERATURE.left_temp_mc.leftMarksBG, 0.5, {y: tempMarksBG_Y + (tempTable[tempLevel] + seasonalTemperature)*PIXELS_PER_DEGREE, ease:Linear.easeNone});

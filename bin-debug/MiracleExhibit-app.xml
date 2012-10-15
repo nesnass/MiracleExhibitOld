@@ -15,6 +15,6 @@
 		<image128x128>assets/icons/128.png</image128x128>
 	</icon>
 	
-	<supportedProfiles>extendedDesktop</supportedProfiles>
+	<supportedProfiles>extendedDesktop desktop</supportedProfiles>
 		
 </application>
