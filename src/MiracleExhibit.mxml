@@ -34,17 +34,19 @@
 		</s:Group>
 		<local:HP_Gameplay id="hpGame" />
 		<!--local:HP_Cross id="hpCross" /-->
-		<s:Group left="405" top="205" scaleX="0.8" scaleY="0.79" >
-			<s:VideoDisplay id="videoPlayer" source="{videoSource}" width="550" height="836" autoPlay="true" loop="true" visible ="false"/>
-			<s:VideoDisplay id="videoPlayer2" source="{videoSource2}" width="580" height="836" autoPlay="true" loop="true" visible="false"/>
-			<s:SpriteVisualElement id="crossOverlay" x="189" y="4" width="200" height="200"/>
-			<s:SpriteVisualElement id="ventOverlay" x="189" y="630" />
+		<s:Group id="videoGroup" left="405" top="205" scaleX="0.8" scaleY="0.79" visible="false" >
+			<s:VideoDisplay id="videoPlayer" source="{videoSource2}" width="580" height="836" autoPlay="true" loop="true" visible ="false"/>
+			<s:VideoDisplay id="videoPlayer2" source="{videoSource}" width="580" height="836" autoPlay="true" loop="true" visible="false"/>
+		</s:Group>
+		<s:Group id="spriteGroup" left="405" top="205" visible="false">
+			<s:SpriteVisualElement id="crossOverlay" x="169" y="15" width="200" height="200"/>
+			<s:SpriteVisualElement id="ventOverlay" x="175" y="521" />
 		</s:Group>
 		<!--s:Image id="pngsquizzle" source="assets/pics/PNGSQIZZLE.png" left="360" top="190"/-->
 		<!--s:RichText id="countDown" text="{countDownText}" x="{640 - int(countDown.width/2)}" y="500" fontSize="175" fontWeight="bold" visible="false" /-->
 		<s:SWFLoader id="cdwn" enabled="false" source="assets/flash/countdown.swf" x="370" y="320" visible="false"/>
 	</s:Group>
-	<s:Group id="instructionGroup" width="100%" height="100%" includeIn="instruction" >
+	<s:Group id="instructionGroup" width="100%" height="100%" includeIn="instruction"  >
 		<local:HP_Start id="hpStart"/>
 		<!--local:HP_Guage id="swfGuageInstruction" x="500" y="860" scaleX=".35" scaleY=".35" /-->
 	</s:Group>

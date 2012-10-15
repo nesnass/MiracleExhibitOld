@@ -87,7 +87,7 @@ private var crossSpeed:Number = 0;
 private var cross:Loader = new Loader();
 private var ptRotationPoint:Point;
 private var rotator:Rotator;
-
+private var myLegend:Legend = new Legend();
 private var tempTable:Dictionary = new Dictionary();  // Matches sensor read values to temperature values
 private var seasonalTempTable:Dictionary = new Dictionary();  // Matches the current game sample point to the current seasonal outdoor temperature
 
@@ -201,9 +201,9 @@ private function setupChart():void {
 	columnChart.maxWidth = 1000;
 	columnChart.maxHeight = 300;
 	
-	var myLegend:Legend = new Legend();
 	myLegend.dataProvider = columnChart;
-	legend.addChild(myLegend);
+	if(!legend.contains(myLegend))
+		legend.addChild(myLegend);
 	
 	var totalScore:int = 0;
 	var totalEnergyTransferred:Number = 0;
@@ -344,6 +344,8 @@ private function timeGame(event:TimerEvent):void {
 		}
 		else if(countDownText == "1..") {
 			countDownText = "GO!";
+			videoGroup.visible = true;
+			spriteGroup.visible = true;
 			cdwn.visible = false;
 //			countDownFadeOut.play();
 			hpGame.TEMPERATURE.left_temp_mc.leftMarks.y = tempMarks_Y + seasonalTemperature*LARGE_PIXELS_PER_DEGREE;
@@ -427,12 +429,17 @@ private function stopGame(event:TimerEvent):void {
 	gameTimer.reset();
 	gameTimer.removeEventListener(TimerEvent.TIMER_COMPLETE, stopGame);
 	gameTimer.addEventListener(TimerEvent.TIMER_COMPLETE, returnFirstScreen);
+	gameTimer.removeEventListener(TimerEvent.TIMER, timeGame);
 	gameTimer.delay = 20000;
 	gameTimer.repeatCount = 1;
 	monthCounter = 0;
 	readysetgo = true;
 	countDownText = "3..";
 	this.removeEventListener(Event.ENTER_FRAME, enterFrame);
+	videoGroup.visible = false;
+	spriteGroup.visible = false;
+	videoPlayer2.visible = false;
+	videoPlayer.visible = false;
 	this.currentState = "result";
 	setupChart();
 	gameTimer.start();
@@ -447,9 +454,10 @@ private function returnFirstScreen(event:TimerEvent):void {
 	hpStart.guageArrow.rotation = -80;
 	gameTimer.reset();
 	gameTimer.removeEventListener(TimerEvent.TIMER_COMPLETE, returnFirstScreen);
+	gameTimer.addEventListener(TimerEvent.TIMER, timeGame);
 	gameTimer.delay = COUNTDOWN_INTERVAL;
 	gameTimer.repeatCount = 0;
-	gameTimer.start();
+	//gameTimer.start();
 	sampleInterval = setInterval(takeSample, 100);
 }
 
@@ -515,7 +523,7 @@ private function introUpdate():void {
 
 		var ventLoader:Loader = new Loader();
 		ventLoader.load(new URLRequest("assets/pics/vent.png"));
-		
+		hpGame.intro_txt.alpha = 1;
 		ventOverlay.alpha = 0;
 		crossOverlay.alpha = 0;
 		
@@ -532,7 +540,7 @@ private function introUpdate():void {
 
 		crossOverlay.addChild(cross);
 		ventOverlay.addChild(ventLoader);
-		rotator = new Rotator(cross, new Point(100,100));
+		rotator = new Rotator(cross, new Point(65,65));
 		this.addEventListener(Event.ENTER_FRAME, enterFrame);
 		
 		hpGame.heatPump.alpha = 0;
@@ -543,14 +551,16 @@ private function introUpdate():void {
 		//countDown.visible = true;
 		
 		// This is the transition efect of the instruction text and pump fade in, before the countdown begins.
-		TweenLite.to(hpGame.heatPump, 10, {alpha: 1, ease:Expo.easeIn});
-		TweenLite.to(crossOverlay, 10, {alpha: 1, ease:Expo.easeIn});
-		TweenLite.to(ventOverlay, 10, {alpha: 1, ease:Expo.easeIn});
 		TweenLite.to(hpGame.intro_txt, 10, {alpha: 0, ease:Expo.easeIn, onComplete: function():void {initiateCountdown();}});
 	}
 }
 
 private function initiateCountdown():void {
+	
+	TweenLite.to(hpGame.heatPump, 5, {alpha: 1, ease:Linear.easeNone});
+	TweenLite.to(crossOverlay, 5, {alpha: 1, ease:Linear.easeNone});
+	TweenLite.to(ventOverlay, 5, {alpha: 1, ease:Linear.easeNone});
+	
 	cdwn.load("assets/flash/countdown.swf");
 	cdwn.visible = true;
 	cdwn.enabled = true;
@@ -575,16 +585,16 @@ private function gameUpdate():void {
 	if(tempAverage > HIGH_LIMIT_GAME) {
 		videoPlayer.visible = true;
 		videoPlayer2.visible = false;
-		ventOverlay.getChildAt(0).rotation = 0;
-		ventOverlay.getChildAt(0).x = 0;
-		ventOverlay.getChildAt(0).y = 0;
+		ventOverlay.getChildAt(0).rotation = 180;
+		ventOverlay.getChildAt(0).x = ventOverlay.getChildAt(0).width;
+		ventOverlay.getChildAt(0).y = ventOverlay.getChildAt(0).height;
 	}
 	else if(tempAverage < LOW_LIMIT_GAME) {
 		videoPlayer2.visible = true;
 		videoPlayer.visible = false;
-		ventOverlay.getChildAt(0).rotation = 180;
-		ventOverlay.getChildAt(0).x = ventOverlay.getChildAt(0).width;
-		ventOverlay.getChildAt(0).y = ventOverlay.getChildAt(0).height;
+		ventOverlay.getChildAt(0).rotation = 0;
+		ventOverlay.getChildAt(0).x = 0;
+		ventOverlay.getChildAt(0).y = 0;
 	}
 	else {
 		videoPlayer2.visible = false;
@@ -593,7 +603,7 @@ private function gameUpdate():void {
 
 	// Normalise the read value to match one of the tempTable values
 	tempLevel = int((tempAverage - INITIAL_REFERENCE_VALUE) / VALUE_STEP)*VALUE_STEP + INITIAL_REFERENCE_VALUE;
-	crossSpeed = int(tempTable[tempLevel])*2;
+	crossSpeed = -int(tempTable[tempLevel])*2;
 	// Move the temperature tag, only within the bounds of the thermometer
 	if(MIN_HOUSE_THERMO < (tempTable[tempLevel] + seasonalTemperature) && (tempTable[tempLevel] + seasonalTemperature) < MAX_HOUSE_THERMO) {
 		TweenLite.to(hpGame.TEMPERATURE.left_temp_mc.leftMarksBG, 0.5, {y: tempMarksBG_Y + (tempTable[tempLevel] + seasonalTemperature)*PIXELS_PER_DEGREE, ease:Linear.easeNone});
