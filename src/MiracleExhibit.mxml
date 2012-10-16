@@ -28,10 +28,10 @@
 		<s:State name="game" />
 		<s:State name="result" />
 	</s:states>
+	<s:Group x="90" y="900" excludeFrom="instruction">
+		<s:Graphic id="timeChart" x="1" y="1" width="1072" height="40" />
+	</s:Group>
 	<s:Group includeIn="game">
-		<s:Group x="90" y="900">
-			<s:Graphic id="timeChart" x="1" y="1" width="1072" height="40" />
-		</s:Group>
 		<local:HP_Gameplay id="hpGame" />
 		<!--local:HP_Cross id="hpCross" /-->
 		<s:Group id="videoGroup" left="405" top="205" scaleX="0.8" scaleY="0.79" visible="false" >
@@ -54,9 +54,10 @@
 		<!--local:HP_Guage id="swfGuageResult" x="100" scaleX=".4" scaleY=".4" /-->
 		<!--s:Label id="scoreText" text="" fontSize="50" /-->
 		<local:HP_Finish id="hpFinish"  />
-		<mx:ColumnChart id="columnChart" includeIn="result" visible="false" z="2" x="150" y="650" width="300"></mx:ColumnChart>
+		<mx:AreaChart id="areaChart" includeIn="result" visible="false" z="2" x="85" y="690"></mx:AreaChart>
 		<mx:Box id="legend" x="500" y="550" visible="false" z="3"/>
 		<!--s:Label text="Energy transferred in a full year" fontSize="30" /-->
 	</s:Group>
+
 	<!--s:Button id="restartButton" label="Restart Game"  includeIn="result" click="restartGame(event)"/-->
 </s:WindowedApplication>

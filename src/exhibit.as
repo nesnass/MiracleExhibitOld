@@ -34,11 +34,14 @@ import flash.utils.clearInterval;
 import flash.utils.getTimer;
 import flash.utils.setInterval;
 
+import mx.charts.AreaChart;
+import mx.charts.AxisRenderer;
 import mx.charts.BarChart;
 import mx.charts.CategoryAxis;
-import mx.charts.ColumnChart;
 import mx.charts.Legend;
 import mx.charts.LinearAxis;
+import mx.charts.series.AreaSeries;
+import mx.charts.series.AreaSet;
 import mx.charts.series.BarSeries;
 import mx.charts.series.BarSet;
 import mx.charts.series.ColumnSeries;
@@ -47,6 +50,7 @@ import mx.collections.ArrayCollection;
 import mx.collections.ArrayList;
 import mx.core.UIComponent;
 import mx.events.FlexEvent;
+import mx.graphics.SolidColor;
 import mx.logging.ILogger;
 import mx.logging.Log;
 import mx.logging.LogEventLevel;
@@ -75,10 +79,10 @@ private const LARGE_PIXELS_PER_DEGREE:uint = 120;
 private const tempMarksBG_Y:int = -1995;
 private const tempMarks_Y:int = -4420;
 private const GAME_COUNTS:uint = 96;     // Number of steps (eight samples per month)
-private const COUNTDOWN_INTERVAL:uint = 1200;
-//private const COUNTDOWN_INTERVAL:uint = 500;
-private const GAME_INTERVAL:uint = 375; // Milliseconds per step
-//private const GAME_INTERVAL:uint = 100;
+//private const COUNTDOWN_INTERVAL:uint = 1800;
+private const COUNTDOWN_INTERVAL:uint = 500;
+//private const GAME_INTERVAL:uint = 375; // Milliseconds per step
+private const GAME_INTERVAL:uint = 100;
 
 private var firstRun:Boolean = true;
 private var readysetgo:Boolean = true;
@@ -101,6 +105,8 @@ private var tempLevel:uint;
 private var tHusBGColour:Color = new Color();
 private var gameTimer:Timer;
 
+private var testTimer:Timer;
+
 private var tempAveragingArray:Array = new Array(20);
 
 // private var monthNames:ArrayCollection = new ArrayCollection(["July","August","September","October","November","December","January","February","March","April","May","June"]);
@@ -108,6 +114,7 @@ private var monthlyTotals:Object = {month:"January", score:0, sourceEnergyTransf
 
 // Store the results of the game for each month
 [Bindable]
+/*
 private var yearlyData:ArrayCollection = new ArrayCollection([
 	{month:"Winter", score:0, sourceEnergyTransferred:0, idealEnergyTransferred:0,
 		crankEnergy:0, outdoorTemp:0},
@@ -118,7 +125,7 @@ private var yearlyData:ArrayCollection = new ArrayCollection([
 	{month:"Autumn", score:0, sourceEnergyTransferred:0, idealEnergyTransferred:0,
 		crankEnergy:0, outdoorTemp:0}
 ]);
-/*
+*/
 private var yearlyData:ArrayCollection = new ArrayCollection([
 	{month:"January", score:0, sourceEnergyTransferred:0, idealEnergyTransferred:0,
 		crankEnergy:0, outdoorTemp:0},
@@ -145,63 +152,73 @@ private var yearlyData:ArrayCollection = new ArrayCollection([
 	{month:"December", score:0, sourceEnergyTransferred:0, idealEnergyTransferred:0,
 		crankEnergy:0, outdoorTemp:0}
 ]);
-*/
+
 protected function initApp(event:FlexEvent):void {
 	this.stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
 	setupAndLaunch();
 }
 
 private function setupChart():void {
-	columnChart.dataProvider = yearlyData;
-	columnChart.showDataTips = false;
-	columnChart.percentWidth=100;
-	columnChart.percentHeight=100;
+	areaChart.dataProvider = yearlyData;
+	areaChart.showDataTips = false;
+	areaChart.percentWidth=100;
+	areaChart.percentHeight=100;
 
 	var hAxis:CategoryAxis = new CategoryAxis();
 	hAxis.categoryField = "month";
+	var hAxisRenderer:AxisRenderer = new AxisRenderer();
+	hAxisRenderer.axis = hAxis;
+	hAxisRenderer.setStyle("showLabels", false);
+	hAxisRenderer.setStyle("tickPlacement", false);
+	
 	var vAxis:LinearAxis = new LinearAxis();
 	vAxis.autoAdjust = true;
+	var vAxisRenderer:AxisRenderer = new AxisRenderer();
+	vAxisRenderer.axis = vAxis;
+	vAxisRenderer.setStyle("showLabels", false);
 	
-	columnChart.horizontalAxis = hAxis;
-	columnChart.verticalAxis = vAxis;
+	areaChart.verticalAxisRenderers = [vAxisRenderer];
+	areaChart.horizontalAxisRenderers = [hAxisRenderer];
+	
+	areaChart.horizontalAxis = hAxis;
+	areaChart.verticalAxis = vAxis;
 
-/*	var outerSet:ColumnSet = new ColumnSet();
-	outerSet.type = "clustered";
-	var series1:ColumnSeries = new ColumnSeries();
-	series1.yField = "sourceEnergyTransferred";
-	series1.xField = "month";
-	//	series1.displayName = "score";
-	outerSet.series = [series1];
-*/	
-	var innerSet:ColumnSet = new ColumnSet();
+	var innerSet:AreaSet = new AreaSet();
 	innerSet.type = "clustered";
 	
-	var series1:ColumnSeries = new ColumnSeries();
+	var series1:AreaSeries = new AreaSeries();
 	series1.setStyle("fill", 0xF9BE10);
 	series1.yField = "idealEnergyTransferred";
 	series1.xField = "month";
 	series1.displayName = "Energy Required";
 	
-	var series2:ColumnSeries = new ColumnSeries();
-	series2.setStyle("fill", 0x0056B8);
+	var fillColor1:SolidColor = new SolidColor();
+	fillColor1.color = 0x99CC33;
+	var fillColor2:SolidColor = new SolidColor();
+	fillColor2.color = 0xC9D52E;
+	
+	var series2:AreaSeries = new AreaSeries();
+	series2.setStyle("areaFill", fillColor1);
 	series2.yField = "sourceEnergyTransferred";
 	series2.xField = "month";
-	series2.displayName = "Outdoor Energy Transferred";
-
-	var series3:ColumnSeries = new ColumnSeries();
-	series3.setStyle("fill", 0x369D31);
+	series2.displayName = "Energi overført mellom inne og ute";
+	series2.setStyle("form", "curve");
+	
+	var series3:AreaSeries = new AreaSeries();
+	series3.setStyle("areaFill", fillColor2);
 	series3.yField = "crankEnergy";
 	series3.xField = "month";
-	series3.displayName = "Crank Energy Used";
+	series3.displayName = "Energi brukt for å drive varmepumpa";
+	series3.setStyle("form", "curve");
 	
-	innerSet.series = [series1, series2, series3];
+	innerSet.series = [series2, series3];
 	
-	//	columnChart.series = [outerSet, innerSet];
-	columnChart.series = [innerSet];
-	columnChart.maxWidth = 1000;
-	columnChart.maxHeight = 300;
+	//	areaChart.series = [outerSet, innerSet];
+	areaChart.series = [innerSet];
+	areaChart.maxWidth = 1085;
+	areaChart.maxHeight = 200;
 	
-	myLegend.dataProvider = columnChart;
+	myLegend.dataProvider = areaChart;
 	if(!legend.contains(myLegend))
 		legend.addChild(myLegend);
 	
@@ -222,9 +239,8 @@ private function setupChart():void {
 	hpFinish.guageFinishGroup.scaleY = 1.5;
 	hpFinish.guageFinishGroup.y = 800;
 	
-	hpFinish.endText.txt.text = "Prøv å holde temperaturen enda mer stabil for å bedre resultatet!"+"\n"
-		+"I løpet av året brukte du "+int(totalEnergyTransferred)+" KW timer. "+int(totalCrankEnergy)+" gikk med til å drive varmepumpa, resten ble hentet fra lufta utendørs.";
-	
+	hpFinish.endText.txt.text = "Prøv å holde temperaturen mer stabilt"+'\n'+"for å forbedre resultatet!"+'\n'+'\n'+Math.abs(int(totalEnergyTransferred))+" KW timer. "
+		+Math.abs(int(totalCrankEnergy))+" gikk med til å drive varmepumpa, resten ble hentet fra lufta utendørs.";
 	// Multiplies by 0.9 to fit the needle into the guage!
 	TweenLite.to(hpFinish.guageFinishGroup.guageArrow, 3, {rotation: (1.8*totalScore - 90)*0.9, ease:Bounce.easeOut, onComplete: completeLastScreen});
 }
@@ -233,7 +249,7 @@ private function completeLastScreen():void {
 	TweenLite.to(hpFinish.guageFinishGroup, 3, {y: 500, scaleX: 1, scaleY: 1, ease:Linear.easeNone, onComplete: showChart});
 }
 private function showChart():void {
-	columnChart.visible = true;
+	areaChart.visible = true;
 	hpFinish.endText.visible = true;
 	legend.visible = true;
 }
@@ -247,11 +263,20 @@ public function setupAndLaunch():void
 	gameTimer = new Timer(COUNTDOWN_INTERVAL,0);
 	gameTimer.addEventListener(TimerEvent.TIMER, timeGame);
 	
+	testTimer = new Timer(30000,1);
+	testTimer.addEventListener(TimerEvent.TIMER_COMPLETE, testGame);
+//	testTimer.start();
+	
 	phid.open("localhost",5001);
 	phid.addEventListener(PhidgetEvent.ATTACH, onAttach);
 	
 	videoSource2 = "assets/vids/hp.mp4";
 	videoSource = "assets/vids/hpf.mp4";
+}
+
+private function testGame(event:Event):void {
+	hpStart.guageArrow.rotation = 81;
+	testTimer.removeEventListener(TimerEvent.TIMER_COMPLETE, testGame);
 }
 
 // Configure tables that correspond months with raw data to temperature levels
@@ -280,59 +305,6 @@ private function setupTables():void
 	}
 }
 
-// Reads raw data from the Phidget device when a data output event occurrs
-/*
-public function onOutputData(event:PhidgetDataEvent):void
-{
-	lastReadData = int(event.Data);
-	
-	// The first sample is to determine the steady state value
-	if(firstRun) {
-		INITIAL_REFERENCE_VALUE = phid.getSensorValue(6);
-		for(var i:uint=0;i<20;i++)
-			tempAveragingArray[i] = INITIAL_REFERENCE_VALUE;
-	
-		setupTables();
-		firstRun = false;
-	}
-		// In game state, use the data to upate the screen graphics
-	else if(this.currentState == "game")
-		gameUpdate();
-		// In Instruction mode, use the data to run the speedometer, to initiate the game
-	else
-		introUpdate();
-	
-	
-	try {
-		// Take a sample of data from the Phidget
-		lastReadData = Number(process.standardOutput.readUTFBytes(process.standardOutput.bytesAvailable));
-
-		// The first sample is to determine the steady state value
-		if(firstRun) {
-			INITIAL_REFERENCE_VALUE = lastReadData;
-			setupTables();
-			firstRun = false;
-		}
-		// In game state, use the data to upate the screen graphics
-		else if(this.currentState == "game")
-			gameUpdate();
-		// In Instruction mode, use the data to run the speedometer, to initiate the game
-		else
-			introUpdate();
-	}
-	catch(e:Error) {
-		if(e.errorID == 2030) {
-			trace("error: "+e.errorID);
-			process.exit();
-			process.start(nativeProcessStartupInfo);
-		}
-		return;
-	}
-	
-}
-*/
-
-
 // The method called to manage timer events :  First the count down, then the month change and statistic recording
 private function timeGame(event:TimerEvent):void {
 	if(readysetgo) {
@@ -346,7 +318,9 @@ private function timeGame(event:TimerEvent):void {
 			countDownText = "GO!";
 			videoGroup.visible = true;
 			spriteGroup.visible = true;
-			cdwn.visible = false;
+			hpGame.arrowFlowL.alpha = 1;
+			hpGame.arrowFlowL.alpha = 1;
+//			cdwn.visible = false;
 //			countDownFadeOut.play();
 			hpGame.TEMPERATURE.left_temp_mc.leftMarks.y = tempMarks_Y + seasonalTemperature*LARGE_PIXELS_PER_DEGREE;
 			hpGame.TEMPERATURE.left_temp_mc.leftMarksBG.y = tempMarksBG_Y + seasonalTemperature*PIXELS_PER_DEGREE;
@@ -377,7 +351,7 @@ private function timeGame(event:TimerEvent):void {
 		// At present resolution (therefore GAME_COUNTS) is higher to support a smoother change of Outside temp marker on screen
 
 		monthCounter += 1;
-		if((monthCounter > 0 && monthCounter % 24 == 0) || monthCounter == GAME_COUNTS) {
+		if((monthCounter > 0 && monthCounter % 8 == 0) || monthCounter == GAME_COUNTS) {
 			
 			// This is the temperature difference between inside and outside, should be multiplied over time to obtain energy. 
 			monthlyTotals.sourceEnergyTransferred +=  tempTable[tempLevel];
@@ -387,12 +361,12 @@ private function timeGame(event:TimerEvent):void {
 			// In reality the crank energy will be constant, but over time more cranking is done in colder/hotter months
 			// monthlyTotals.crankEnergy = 1000*7;
 			
-			var update:Object = yearlyData.getItemAt(monthCounter/24 -1);
-			update.sourceEnergyTransferred = monthlyTotals.sourceEnergyTransferred/24;
-			update.idealEnergyTransferred = monthlyTotals.idealEnergyTransferred/24;
+			var update:Object = yearlyData.getItemAt(monthCounter/8 -1);
+			update.sourceEnergyTransferred = monthlyTotals.sourceEnergyTransferred/8;
+			update.idealEnergyTransferred = monthlyTotals.idealEnergyTransferred/8;
 			update.score = monthlyTotals.score;
-			update.crankEnergy = monthlyTotals.crankEnergy/24;
-			yearlyData.setItemAt(update, monthCounter/24 -1);
+			update.crankEnergy = monthlyTotals.crankEnergy/8;
+			yearlyData.setItemAt(update, monthCounter/8 -1);
 			
 			monthlyTotals.sourceEnergyTransferred = 0;
 			monthlyTotals.idealEnergyTransferred = 0;
@@ -428,9 +402,10 @@ private function stopGame(event:TimerEvent):void {
 	clearInterval(sampleInterval);
 	gameTimer.reset();
 	gameTimer.removeEventListener(TimerEvent.TIMER_COMPLETE, stopGame);
-	gameTimer.addEventListener(TimerEvent.TIMER_COMPLETE, returnFirstScreen);
+//	gameTimer.addEventListener(TimerEvent.TIMER_COMPLETE, returnFirstScreen);
 	gameTimer.removeEventListener(TimerEvent.TIMER, timeGame);
-	gameTimer.delay = 20000;
+	// Time delay before returning to opening screen
+	gameTimer.delay = 25000;
 	gameTimer.repeatCount = 1;
 	monthCounter = 0;
 	readysetgo = true;
@@ -448,7 +423,7 @@ private function stopGame(event:TimerEvent):void {
 // Start the game over again
 private function returnFirstScreen(event:TimerEvent):void {
 	legend.visible = false;
-	columnChart.visible = false;
+	areaChart.visible = false;
 	timeChart.graphics.clear();
 	this.currentState = "instruction";
 	hpStart.guageArrow.rotation = -80;
@@ -459,6 +434,10 @@ private function returnFirstScreen(event:TimerEvent):void {
 	gameTimer.repeatCount = 0;
 	//gameTimer.start();
 	sampleInterval = setInterval(takeSample, 100);
+	
+	testTimer.addEventListener(TimerEvent.TIMER_COMPLETE, testGame);
+	testTimer.reset();
+//	testTimer.start();
 }
 
 
@@ -564,6 +543,8 @@ private function initiateCountdown():void {
 	cdwn.load("assets/flash/countdown.swf");
 	cdwn.visible = true;
 	cdwn.enabled = true;
+	hpGame.arrowFlowL.alpha = 0;
+	hpGame.arrowFlowL.alpha = 0;
 	gameTimer.start();
 }
 
@@ -588,6 +569,8 @@ private function gameUpdate():void {
 		ventOverlay.getChildAt(0).rotation = 180;
 		ventOverlay.getChildAt(0).x = ventOverlay.getChildAt(0).width;
 		ventOverlay.getChildAt(0).y = ventOverlay.getChildAt(0).height;
+		hpGame.arrowFlowL.visible = false;
+		hpGame.arrowFlowR.visible = true;
 	}
 	else if(tempAverage < LOW_LIMIT_GAME) {
 		videoPlayer2.visible = true;
@@ -595,10 +578,14 @@ private function gameUpdate():void {
 		ventOverlay.getChildAt(0).rotation = 0;
 		ventOverlay.getChildAt(0).x = 0;
 		ventOverlay.getChildAt(0).y = 0;
+		hpGame.arrowFlowL.visible = true;
+		hpGame.arrowFlowR.visible = false;
 	}
 	else {
 		videoPlayer2.visible = false;
 		videoPlayer.visible = false;
+		hpGame.arrowFlowL.visible = false;
+		hpGame.arrowFlowR.visible = false;
 	}
 
 	// Normalise the read value to match one of the tempTable values
@@ -611,7 +598,7 @@ private function gameUpdate():void {
 	}
 }
 
-// Update the colour of the indoor temperature tag	
+// Update the colour of the indoor temperature tag
 private function tweenMarks(tempLevel:uint):void {
 	if(hpGame.TEMPERATURE.left_temp_mc.leftMarksBG.y > (tempMarksBG_Y + PIXELS_PER_DEGREE*15)
 		&& hpGame.TEMPERATURE.left_temp_mc.leftMarksBG.y < (tempMarksBG_Y + PIXELS_PER_DEGREE*21))

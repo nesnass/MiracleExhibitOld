@@ -3,16 +3,16 @@
 	<id>no.uio.intermedia.MiracleME</id>
 	<filename>MiracleME</filename>
 	<name>MiracleME</name>
-	<versionNumber>1.1.2</versionNumber>
+	<versionNumber>2.0.0</versionNumber>
 	<initialWindow>
 		<content>MiracleExhibit.swf</content>
     </initialWindow>
 
 	<icon>
-		<image16x16>assets/icons/16.png</image16x16>
-		<image32x32>assets/icons/32.png</image32x32>
-		<image48x48>assets/icons/48.png</image48x48>
-		<image128x128>assets/icons/128.png</image128x128>
+		<image16x16>assets/icons/hp_icon_16.png</image16x16>
+		<image32x32>assets/icons/hp_icon_32.png</image32x32>
+		<image48x48>assets/icons/hp_icon_48.png</image48x48>
+		<image128x128>assets/icons/hp_icon_128.png</image128x128>
 	</icon>
 	
 	<supportedProfiles>extendedDesktop desktop</supportedProfiles>
