@@ -11,6 +11,7 @@
 		<!--s:Fade id="countDownFadeOut" alphaFrom="1" alphaTo="0" duration="500" target="{countDown}" /-->
 		<s:SolidColorStroke id="xAxis" color="0xFF0000" weight="1"/>
 		<s:SolidColorStroke id="yAxis" color="0x0000FF" weight="1"/>
+		<mx:SolidColor id="testFill" color="0xFF0000" />
 	</fx:Declarations>
 	
 	<fx:Style>
@@ -38,11 +39,11 @@
 			<s:VideoDisplay id="videoPlayer" source="{videoSource2}" width="580" height="836" autoPlay="true" loop="true" visible ="false"/>
 			<s:VideoDisplay id="videoPlayer2" source="{videoSource}" width="580" height="836" autoPlay="true" loop="true" visible="false"/>
 		</s:Group>
+		<!--s:Image id="pngsquizzle" source="assets/pics/PNGSQIZZLE2.png" left="359" top="189"/-->
 		<s:Group id="spriteGroup" left="405" top="205" visible="false">
 			<s:SpriteVisualElement id="crossOverlay" x="169" y="15" width="200" height="200"/>
 			<s:SpriteVisualElement id="ventOverlay" x="175" y="521" />
 		</s:Group>
-		<!--s:Image id="pngsquizzle" source="assets/pics/PNGSQIZZLE.png" left="360" top="190"/-->
 		<!--s:RichText id="countDown" text="{countDownText}" x="{640 - int(countDown.width/2)}" y="500" fontSize="175" fontWeight="bold" visible="false" /-->
 		<s:SWFLoader id="cdwn" enabled="false" source="assets/flash/countdown.swf" x="370" y="320" visible="false"/>
 	</s:Group>
@@ -54,7 +55,9 @@
 		<!--local:HP_Guage id="swfGuageResult" x="100" scaleX=".4" scaleY=".4" /-->
 		<!--s:Label id="scoreText" text="" fontSize="50" /-->
 		<local:HP_Finish id="hpFinish"  />
-		<mx:AreaChart id="areaChart" includeIn="result" visible="false" z="2" x="85" y="690"></mx:AreaChart>
+		<!--s:Rect fill="{testFill}" x="0" y="500" width="1200" height="1000" /-->
+		<mx:AreaChart id="areaChart" visible="false" z="2" x="100" y="710"/>
+		<s:SWFLoader id="divisions" source="assets/flash/Division_lines.swf" z="3" x="350" y="507"/>
 		<mx:Box id="legend" x="500" y="550" visible="false" z="3"/>
 		<!--s:Label text="Energy transferred in a full year" fontSize="30" /-->
 	</s:Group>

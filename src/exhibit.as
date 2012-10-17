@@ -38,6 +38,7 @@ import mx.charts.AreaChart;
 import mx.charts.AxisRenderer;
 import mx.charts.BarChart;
 import mx.charts.CategoryAxis;
+import mx.charts.GridLines;
 import mx.charts.Legend;
 import mx.charts.LinearAxis;
 import mx.charts.series.AreaSeries;
@@ -50,6 +51,8 @@ import mx.collections.ArrayCollection;
 import mx.collections.ArrayList;
 import mx.core.UIComponent;
 import mx.events.FlexEvent;
+import mx.graphics.GradientEntry;
+import mx.graphics.LinearGradient;
 import mx.graphics.SolidColor;
 import mx.logging.ILogger;
 import mx.logging.Log;
@@ -79,10 +82,10 @@ private const LARGE_PIXELS_PER_DEGREE:uint = 120;
 private const tempMarksBG_Y:int = -1995;
 private const tempMarks_Y:int = -4420;
 private const GAME_COUNTS:uint = 96;     // Number of steps (eight samples per month)
-//private const COUNTDOWN_INTERVAL:uint = 1800;
-private const COUNTDOWN_INTERVAL:uint = 500;
-//private const GAME_INTERVAL:uint = 375; // Milliseconds per step
-private const GAME_INTERVAL:uint = 100;
+private const COUNTDOWN_INTERVAL:uint = 1800;
+//private const COUNTDOWN_INTERVAL:uint = 500;
+private const GAME_INTERVAL:uint = 375; // Milliseconds per step
+//private const GAME_INTERVAL:uint = 100;
 
 private var firstRun:Boolean = true;
 private var readysetgo:Boolean = true;
@@ -98,6 +101,9 @@ private var seasonalTempTable:Dictionary = new Dictionary();  // Matches the cur
 [Bindable] private var videoSource:String;
 [Bindable] private var videoSource2:String;
 [Bindable] private var countDownText:String = "3..";
+
+[Embed(source="assets/fonts/Franklin Gothic Demi.ttf", fontFamily="Franklin Gothic Demi", fontName="FGD", mimeType="application/x-font-truetype")]
+private static var Fontclass1:Class;
 
 //private var process:NativeProcess;
 //private var nativeProcessStartupInfo:NativeProcessStartupInfo
@@ -158,30 +164,58 @@ protected function initApp(event:FlexEvent):void {
 	setupAndLaunch();
 }
 
+// Create the chart specifics to display game result
 private function setupChart():void {
 	areaChart.dataProvider = yearlyData;
 	areaChart.showDataTips = false;
 	areaChart.percentWidth=100;
 	areaChart.percentHeight=100;
 
+	var ge1:GradientEntry = new GradientEntry(0xFF0000, 0, 1);
+	var ge2:GradientEntry = new GradientEntry(0xFF5500, 0.33, 1);
+	var ge3:GradientEntry = new GradientEntry(0xFF9900, 0.66, 1);
+
+	var ge4:GradientEntry = new GradientEntry(0x0000FF, 0, 1);
+	var ge5:GradientEntry = new GradientEntry(0x0055FF, 0.33, 1);
+	var ge6:GradientEntry = new GradientEntry(0x0099FF, 0.66, 1);
+	
+	var lg1entries:Array = [ge1,ge2,ge3];
+	var lg2entries:Array = [ge4,ge5,ge6];
+	
+	var lg1:LinearGradient = new LinearGradient();
+	lg1.entries = lg1entries;
+	var lg2:LinearGradient = new LinearGradient();
+	lg2.entries = lg2entries;
+	
+	var gl:GridLines = new GridLines();
+	//gl.setStyle("gridDirection", "both");
+	gl.setStyle("horizontalTickAligned", true);
+	gl.setStyle("horizontalChangeCount", 2);
+	
+	var bge:Array = new Array();
+	bge.push(gl);
+	
 	var hAxis:CategoryAxis = new CategoryAxis();
 	hAxis.categoryField = "month";
 	var hAxisRenderer:AxisRenderer = new AxisRenderer();
 	hAxisRenderer.axis = hAxis;
 	hAxisRenderer.setStyle("showLabels", false);
-	hAxisRenderer.setStyle("tickPlacement", false);
+	hAxisRenderer.setStyle("tickPlacement", "none");
 	
 	var vAxis:LinearAxis = new LinearAxis();
 	vAxis.autoAdjust = true;
 	var vAxisRenderer:AxisRenderer = new AxisRenderer();
 	vAxisRenderer.axis = vAxis;
 	vAxisRenderer.setStyle("showLabels", false);
+	vAxisRenderer.setStyle("tickPlacement", "none");
+	vAxisRenderer.setStyle("showLine", false);
 	
 	areaChart.verticalAxisRenderers = [vAxisRenderer];
 	areaChart.horizontalAxisRenderers = [hAxisRenderer];
 	
 	areaChart.horizontalAxis = hAxis;
 	areaChart.verticalAxis = vAxis;
+	areaChart.backgroundElements = bge;
 
 	var innerSet:AreaSet = new AreaSet();
 	innerSet.type = "clustered";
@@ -215,12 +249,12 @@ private function setupChart():void {
 	
 	//	areaChart.series = [outerSet, innerSet];
 	areaChart.series = [innerSet];
-	areaChart.maxWidth = 1085;
+	areaChart.maxWidth = 1070;
 	areaChart.maxHeight = 200;
 	
-	myLegend.dataProvider = areaChart;
-	if(!legend.contains(myLegend))
-		legend.addChild(myLegend);
+	//myLegend.dataProvider = areaChart;
+	//if(!legend.contains(myLegend))
+	//	legend.addChild(myLegend);
 	
 	var totalScore:int = 0;
 	var totalEnergyTransferred:Number = 0;
@@ -239,7 +273,8 @@ private function setupChart():void {
 	hpFinish.guageFinishGroup.scaleY = 1.5;
 	hpFinish.guageFinishGroup.y = 800;
 	
-	hpFinish.endText.txt.text = "Prøv å holde temperaturen mer stabilt"+'\n'+"for å forbedre resultatet!"+'\n'+'\n'+Math.abs(int(totalEnergyTransferred))+" KW timer. "
+	hpFinish.endText.txt.text = "Prøv å holde temperaturen mer stabilt"+'\n'+"for å forbedre resultatet!"+'\n'+'\n'
+		+"I løpet av året brukte du "+Math.abs(int(totalEnergyTransferred))+" KW timer. "
 		+Math.abs(int(totalCrankEnergy))+" gikk med til å drive varmepumpa, resten ble hentet fra lufta utendørs.";
 	// Multiplies by 0.9 to fit the needle into the guage!
 	TweenLite.to(hpFinish.guageFinishGroup.guageArrow, 3, {rotation: (1.8*totalScore - 90)*0.9, ease:Bounce.easeOut, onComplete: completeLastScreen});
@@ -250,8 +285,21 @@ private function completeLastScreen():void {
 }
 private function showChart():void {
 	areaChart.visible = true;
+	timeChart.visible = true;
+	hpFinish.chartLegend.visible = true;
 	hpFinish.endText.visible = true;
-	legend.visible = true;
+	
+	areaChart.alpha = 0;
+	timeChart.alpha = 0;
+	hpFinish.chartLegend.alpha = 0;
+	hpFinish.endText.alpha = 0;
+	
+	TweenLite.to(areaChart, 1, {alpha: 1});
+	TweenLite.to(timeChart, 1, {alpha: 1});
+	TweenLite.to(hpFinish.chartLegend, 1, {alpha: 1});
+	TweenLite.to(hpFinish.endText, 1, {alpha: 1});
+
+	//legend.visible = true;
 }
 private function enterFrame(event:Event):void {
 	rotator.rotation += crossSpeed;
@@ -272,6 +320,9 @@ public function setupAndLaunch():void
 	
 	videoSource2 = "assets/vids/hp.mp4";
 	videoSource = "assets/vids/hpf.mp4";
+	
+//	this.currentState = "result";
+//	this.setupChart();
 }
 
 private function testGame(event:Event):void {
@@ -393,7 +444,6 @@ private function timeGame(event:TimerEvent):void {
 
 		timeChart.graphics.drawRect(timeChart.width/GAME_COUNTS*monthCounter-1,0,timeChart.width/GAME_COUNTS,40);
 		timeChart.graphics.endFill();
-
 	}
 }
 
@@ -402,7 +452,7 @@ private function stopGame(event:TimerEvent):void {
 	clearInterval(sampleInterval);
 	gameTimer.reset();
 	gameTimer.removeEventListener(TimerEvent.TIMER_COMPLETE, stopGame);
-//	gameTimer.addEventListener(TimerEvent.TIMER_COMPLETE, returnFirstScreen);
+	gameTimer.addEventListener(TimerEvent.TIMER_COMPLETE, returnFirstScreen);
 	gameTimer.removeEventListener(TimerEvent.TIMER, timeGame);
 	// Time delay before returning to opening screen
 	gameTimer.delay = 25000;
@@ -415,7 +465,9 @@ private function stopGame(event:TimerEvent):void {
 	spriteGroup.visible = false;
 	videoPlayer2.visible = false;
 	videoPlayer.visible = false;
+	timeChart.visible = false;
 	this.currentState = "result";
+	hpFinish.chartLegend.visible = false;
 	setupChart();
 	gameTimer.start();
 }
@@ -432,7 +484,7 @@ private function returnFirstScreen(event:TimerEvent):void {
 	gameTimer.addEventListener(TimerEvent.TIMER, timeGame);
 	gameTimer.delay = COUNTDOWN_INTERVAL;
 	gameTimer.repeatCount = 0;
-	//gameTimer.start();
+//	gameTimer.start();
 	sampleInterval = setInterval(takeSample, 100);
 	
 	testTimer.addEventListener(TimerEvent.TIMER_COMPLETE, testGame);
